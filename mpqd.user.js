@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         蜜柑计划 增强
 // @namespace    https://github.com/ewigl/mikan-project-enhanced
-// @version      0.7.4
-// @description  高亮磁链, 复制磁链(时/后)直接打开, 批量复制磁链
+// @version      0.8.0
+// @description  高亮磁链, 复制磁链(时/后)直接打开, 批量复制磁链, 使用 Aria2 下载磁力。
 // @author       Licht
 // @license      MIT
 // @homepage     https://github.com/ewigl/mikan-project-enhanced
@@ -17,6 +17,7 @@
 // @grant        GM_setClipboard
 // @grant        GM_getValue
 // @grant        GM_setValue
+// @grant        GM_xmlhttpRequest
 // ==/UserScript==
 
 ;(function () {
@@ -68,6 +69,24 @@
         border-radius: 50%;
         cursor: pointer;
     }
+
+    .rpc-settings-label {
+        display: flex;
+        align-items: center;
+    }
+    
+    .rpc-settings-label div {
+        width: 20%;
+    }
+    
+    .rpc-settings-input {
+        display: inline-block;
+        flex: 1;
+        height: 32px;
+        padding: 5px;
+        border: 1px solid;
+        border-radius: 5px;
+    }
     `
     GM_addStyle(styleCSS)
 
@@ -89,6 +108,20 @@
             //
         ],
         defaultColor: '#888',
+        rpcSettings: [
+            {
+                name: 'rpc_address',
+                value: 'http://localhost:6800/jsonrpc',
+            },
+            {
+                name: 'rpc_secret',
+                value: '',
+            },
+            {
+                name: 'rpc_dir',
+                value: '',
+            },
+        ],
     }
 
     // 默认 message
@@ -137,11 +170,19 @@
                     console.log(error)
                 } finally {
                     if (cilpboardSet) {
-                        message.fire({
-                            showCloseButton: true,
-                            showConfirmButton: false,
-                            title: '已复制该分组下全部磁力链接到剪切板',
-                        })
+                        message
+                            .fire({
+                                showCloseButton: true,
+                                showCancelButton: true,
+                                title: '已复制该分组下全部磁力链接到剪切板',
+                                html: '<b> 是否使用 Aria2 RPC 批量下载所有磁力链接 ? </b>',
+                            })
+                            .then((result) => {
+                                if (result.isConfirmed) {
+                                    // cycle send to rpc
+                                    util.sendToRPC(magnetLinks)
+                                }
+                            })
                     } else {
                         message.fire({
                             icon: 'error',
@@ -156,6 +197,86 @@
                 })
             }
         },
+        resetToDefaultRPCConfig() {
+            defaultConfig.rpcSettings.forEach((value) => {
+                util.setValue(value.name, value.value)
+            })
+        },
+        sendToRPC: async (magnetLinks) => {
+            let rpc = {
+                address: util.getValue('rpc_address'),
+                secret: util.getValue('rpc_secret'),
+                dir: util.getValue('rpc_dir').trim() === '' ? undefined : util.getValue('rpc_dir'),
+            }
+
+            let rpcData = magnetLinks.map((magnetLink) => {
+                return {
+                    id: new Date().getTime(),
+                    jsonrpc: '2.0',
+                    method: 'aria2.addUri',
+                    params: [
+                        `token:${rpc.secret}`,
+                        [magnetLink],
+                        {
+                            dir: rpc.dir,
+                        },
+                    ],
+                }
+            })
+
+            GM_xmlhttpRequest({
+                method: 'POST',
+                url: rpc.address,
+                data: JSON.stringify(rpcData),
+                onload: (httpRes) => {
+                    if (httpRes.status === 200) {
+                        try {
+                            const responseArray = JSON.parse(httpRes.response)
+
+                            responseArray.forEach((item) => {
+                                if (item.error) {
+                                    message.fire({
+                                        icon: 'error',
+                                        title: 'RPC 请求发送失败, 请检查 RPC 设置是否正确',
+                                        text: `${item.error.code} / ${item.error.message}`,
+                                    })
+                                } else {
+                                    message.fire({
+                                        icon: 'success',
+                                        title: 'RPC 请求发送成功, 请前往 Aria2 控制台查看',
+                                    })
+                                }
+                            })
+                        } catch (error) {
+                            message.fire({
+                                icon: 'error',
+                                title: 'RPC请求发送失败, 请检查RPC设置是否正确',
+                                text: error.toString(),
+                            })
+                        }
+                    } else {
+                        message.fire({
+                            icon: 'error',
+                            title: 'RPC请求发送失败, 请检查RPC设置是否正确',
+                            text: `${httpRes.status} - ${httpRes.statusText}`,
+                        })
+                    }
+                },
+                onerror: (error) => {
+                    message.fire({
+                        icon: 'error',
+                        title: 'RPC请求发送失败, 请检查RPC设置是否正确',
+                        text: JSON.stringify(error),
+                    })
+                },
+                onabort: () => {
+                    message.fire({
+                        icon: 'error',
+                        title: '内部错误',
+                    })
+                },
+            })
+        },
     }
 
     const operation = {
@@ -166,6 +287,9 @@
             <div class="custom-box">
                 <div class="custom-title">
                     复制单个磁链时直接打开:
+                </div>
+                <div>
+                    不再弹出RPC下载提示框
                 </div>
                 <input id="instant_open_input" type="checkbox" ${util.getValue('magnet_link_instant_open') ? 'checked' : ''} />
             </div>
@@ -180,6 +304,41 @@
                 </div>
                 <button id="un-highlight-magnet-button" class="custom-button">
                     取消高亮磁链
+                </button>
+            </div>
+                    
+            <!-- RPC 设置 -->
+            <div id="rpc-settings-box" class="custom-box">
+                <b class="custom-title">
+                    RPC 设置:
+                </b>
+                <div>
+                    修改时自动保存
+                </div>
+                <br>
+                <div>
+                    <label class="rpc-settings-label">
+                        <div>RPC地址:</div>
+                        <input id="rpc-address" type="text" class="rpc-settings-input"
+                            title="默认地址为 http://localhost:6800/jsonrpc" value="${util.getValue('rpc_address')}">
+                    </label>
+                </div>
+                <div>
+                    <label class="rpc-settings-label">
+                        <div>RPC密钥:</div>
+                        <input id="rpc-secret" type="text" class="rpc-settings-input" title="无密钥时留空"
+                            value="${util.getValue('rpc_secret')}">
+                    </label>
+                </div>
+                <div>
+                    <label class="rpc-settings-label">
+                        <div>下载目录:</div>
+                        <input id="rpc-dir" type="text" class="rpc-settings-input" title="留空则为 aria2 默认路径"
+                            value="${util.getValue('rpc_dir')}">
+                    </label>
+                </div>
+                <button id="rpc-reset-button" class="custom-button rpc-settings-button">
+                    重置RPC设置
                 </button>
             </div>
             `
@@ -213,15 +372,29 @@
                     </button>
                 </a>
             </div>
+
+                    
+            <!-- 提示 -->
+            <div>
+                <b>
+                    是否使用 Aria2 RPC 下载该磁力链接 ?
+                </b>
+            </div>
             `
 
             if (magnetLink) {
-                message.fire({
-                    showCloseButton: true,
-                    showConfirmButton: false,
-                    title: '已复制磁力链接到剪切板',
-                    html: onCopyDom,
-                })
+                message
+                    .fire({
+                        showCloseButton: true,
+                        showCancelButton: true,
+                        title: '已复制磁力链接到剪切板',
+                        html: onCopyDom,
+                    })
+                    .then((result) => {
+                        if (result.isConfirmed) {
+                            util.sendToRPC([magnetLink])
+                        }
+                    })
             } else {
                 message.fire({
                     icon: 'error',
@@ -270,10 +443,20 @@
             util.setValue('magnet_highlight_color', defaultConfig.defaultColor)
             GM_addStyle(`.magnet-link {color: ${util.getValue('magnet_highlight_color')}}`)
         },
+        onResetRPCSettings: async () => {
+            util.resetToDefaultRPCConfig()
+            $('#rpc-address').val(util.getValue('rpc_address'))
+            $('#rpc-secret').val(util.getValue('rpc_secret'))
+            $('#rpc-dir').val(util.getValue('rpc_dir'))
+        },
     }
 
     const initAction = {
         initDefaultConfig() {
+            defaultConfig.rpcSettings.forEach((item) => {
+                util.getValue(item.name) === undefined && util.setValue(item.name, item.value)
+            })
+
             // 是否立即打开磁链
             util.getValue('magnet_link_instant_open') === undefined && util.setValue('magnet_link_instant_open', true)
 
@@ -360,6 +543,20 @@
             // 是否直接打开磁链的checkbox
             $(document).on('change', '#instant_open_input', (e) => {
                 util.setValue('magnet_link_instant_open', e.target.checked)
+            })
+
+            // 重置RPC设置
+            $(document).on('click', '#rpc-reset-button', operation.onResetRPCSettings)
+
+            // RPC表单
+            $(document).on('input', '#rpc-address', async (e) => {
+                util.setValue('rpc_address', e.target.value)
+            })
+            $(document).on('input', '#rpc-secret', async (e) => {
+                util.setValue('rpc_secret', e.target.value)
+            })
+            $(document).on('input', '#rpc-dir', async (e) => {
+                util.setValue('rpc_dir', e.target.value)
             })
         },
     }
