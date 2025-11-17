@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         蜜柑计划 增强
 // @namespace    https://github.com/ewigl/mikan-project-enhanced
-// @version      0.8.0
-// @description  高亮磁链, 复制磁链(时/后)直接打开, 批量复制磁链, 使用 Aria2 下载磁力。
+// @version      0.9.0
+// @description  高亮磁链、已订阅动漫, 复制磁链(时/后)直接打开, 批量复制磁链, 使用 Aria2 下载。
 // @author       Licht
 // @license      MIT
 // @homepage     https://github.com/ewigl/mikan-project-enhanced
