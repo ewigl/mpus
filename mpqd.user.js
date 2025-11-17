@@ -54,7 +54,7 @@
         font-weight: bold;
     }
 
-    #instant_open_input {
+    .mpe_checkbox {
         width: 16px;
         height: 16px;
         cursor: pointer;
@@ -102,12 +102,12 @@
             '#8956a1',
             '#59b7d0',
             '#4cb665',
-            '#fff',
-            '#000',
-            '#f00',
+            '#ffffff',
+            '#000000',
+            '#f00000',
             //
         ],
-        defaultColor: '#888',
+        defaultColor: '#555555',
         rpcSettings: [
             {
                 name: 'rpc_address',
@@ -150,6 +150,10 @@
                 dom += `<div class="highlight-color-dot" style="background-color: ${item}"></div>`
             })
             return dom
+        },
+        rgbToRgba(rgb, alpha) {
+            const nums = rgb.match(/\d+/g).map(Number)
+            return `rgba(${nums[0]}, ${nums[1]}, ${nums[2]}, ${alpha})`
         },
         batchCopy(targetElement) {
             // get elements that have attr "data-clipboard-text"
@@ -282,7 +286,7 @@
     const operation = {
         onClickSettingsButton: () => {
             // 主 DOM
-            let mpqdDom = `
+            let mpeDom = `
             <!-- 高亮磁链 -->
             <div class="custom-box">
                 <div class="custom-title">
@@ -291,20 +295,35 @@
                 <div>
                     不再弹出RPC下载提示框
                 </div>
-                <input id="instant_open_input" type="checkbox" ${util.getValue('magnet_link_instant_open') ? 'checked' : ''} />
+                <input id="instant_open_input" class="mpe_checkbox" type="checkbox" ${
+                    util.getValue('magnet_link_instant_open') ? 'checked' : ''
+                } />
             </div>
 
             <!-- 高亮磁链 -->
             <div class="custom-box">
                 <div class="custom-title">
-                    高亮磁链:
+                    [复制磁链]按钮颜色:
                 </div>
                 <div id="highlight-magnet-box">
                     ${util.getDefaultColorButtonsDom()}
                 </div>
                 <button id="un-highlight-magnet-button" class="custom-button">
-                    取消高亮磁链
+                    取消自定义颜色
                 </button>
+            </div>
+
+            <!-- 高亮已订阅动漫 -->
+            <div class="custom-box">
+                <div class="custom-title">
+                    高亮已订阅动漫:
+                </div>
+                <div>
+                    颜色会跟随[复制磁链]按钮颜色
+                </div>
+                <input id="highlight_subscribed_anime_input" class="mpe_checkbox" type="checkbox" ${
+                    util.getValue('highlight_subscribed_anime') ? 'checked' : ''
+                } />
             </div>
                     
             <!-- RPC 设置 -->
@@ -344,8 +363,8 @@
             `
 
             message.fire({
-                title: 'MPQD 设置',
-                html: mpqdDom,
+                title: 'MPE 设置',
+                html: mpeDom,
                 timer: undefined,
             })
         },
@@ -429,19 +448,39 @@
                 util.batchCopy(currentTable)
             }
         },
-        onClickHighlightMagnetBox: async (event) => {
+        onClickHighlightMagnetBox: (event) => {
             let target = event.target
             // 避免点击Box空白处时触发
             if ($(target).prop('id') === 'highlight-magnet-box') {
                 return
             }
-            let color = $(target).css('background-color')
+            let color = target.style.backgroundColor
             util.setValue('magnet_highlight_color', color)
             GM_addStyle(`.magnet-link { color: ${color}; }`)
+
+            operation.onClickHighlightAnimeCheckbox()
         },
-        onClickUnHighlightMagnetButton: async () => {
-            util.setValue('magnet_highlight_color', defaultConfig.defaultColor)
-            GM_addStyle(`.magnet-link {color: ${util.getValue('magnet_highlight_color')}}`)
+        onClickHighlightAnimeCheckbox: () => {
+            GM_addStyle(`
+                .list-inline li:has(.an-info-icon.active) {
+                    box-shadow: none; }
+                `)
+            if (util.getValue('highlight_subscribed_anime')) {
+                let rgb = util.getValue('magnet_highlight_color')
+                if (rgb) {
+                    let rgba = util.rgbToRgba(rgb, 0.8)
+                    GM_addStyle(`
+                        .list-inline li:has(.an-info-icon.active) {
+                            box-shadow: 0 0 10px ${rgba}; }
+                        `)
+                }
+            }
+        },
+        onClickUnHighlightMagnetButton: () => {
+            util.setValue('magnet_highlight_color', '')
+            GM_addStyle(`.magnet-link {color: ${defaultConfig.defaultColor}}`)
+
+            operation.onClickHighlightAnimeCheckbox()
         },
         onResetRPCSettings: async () => {
             util.resetToDefaultRPCConfig()
@@ -463,8 +502,13 @@
             // 高亮磁链颜色
             util.getValue('magnet_highlight_color') === undefined &&
                 util.setValue('magnet_highlight_color', defaultConfig.defaultColor)
+
             // 添加style以高亮磁链
-            GM_addStyle(`.magnet-link {color: ${util.getValue('magnet_highlight_color')}}`)
+            if (util.getValue('magnet_highlight_color')) {
+                GM_addStyle(`.magnet-link {color: ${util.getValue('magnet_highlight_color')}}`)
+            }
+            // 是否高亮已订阅动漫
+            operation.onClickHighlightAnimeCheckbox()
         },
         // check scriptHandler
         getScriptHandler() {
@@ -485,7 +529,7 @@
         addSettingsButtonToListNav() {
             // main & sub page
             const settingsButtonDom = `
-            <div id="mpqd-settings-button" class="sk-col my-rss-date indent-btn" title="蜜柑计划 快速下载 - MPQD 设置">
+            <div id="mpe-settings-button" class="sk-col my-rss-date indent-btn" title="蜜柑计划增强 - MPE 设置">
                 <i class="fa fa-2x fa-sliders"></i>
             </div>
             `
@@ -494,7 +538,7 @@
         addCopyButtonToListNav() {
             // main & sub page
             const copyButtonDom = `
-            <div id="mpqd-copy-updates-button" class="sk-col my-rss-date indent-btn" title="复制全部">
+            <div id="mpe-copy-updates-button" class="sk-col my-rss-date indent-btn" title="复制全部">
                 <i class="fa fa-2x fa-copy"></i>
             </div>
             `
@@ -503,7 +547,7 @@
         addSettingsButtonToLeftbarNav() {
             // search & bangumi page
             const settingsButton = `
-            <button id="mpqd-settings-button" class="btn logmod-submit" data-bangumiid="2968" data-subtitlegroupid=""> MPQD 设置 </button>
+            <button id="mpe-settings-button" class="btn logmod-submit" data-bangumiid="2968" data-subtitlegroupid=""> MPE 设置 </button>
             `
             $('.leftbar-nav')[0].insertAdjacentHTML('beforeend', settingsButton)
         },
@@ -511,7 +555,7 @@
             // classic view
             const settingsButton = `
             <div class="classic-view-pagination1 pull-left" style="margin-top: -10px;">
-                <div id="mpqd-settings-button" class="pagination" style="font-size: 1rem; cursor: pointer;" title="蜜柑计划 快速下载 - MPQD 设置">
+                <div id="mpe-settings-button" class="pagination" style="font-size: 1rem; cursor: pointer;" title="蜜柑计划增强 - MPE 设置">
                     <i class="fa fa-2x fa-sliders"></i>
                 </div>
             </div>
@@ -520,7 +564,7 @@
         },
         addListeners() {
             // 设置
-            $(document).on('click', '#mpqd-settings-button', operation.onClickSettingsButton)
+            $(document).on('click', '#mpe-settings-button', operation.onClickSettingsButton)
 
             // onCopy
             $(document).on('click', '[data-clipboard-text]', operation.onCopyMagnet)
@@ -529,7 +573,7 @@
             $(document).on('click', '.js-expand_bangumi-subgroup', operation.onSubClick)
 
             // onCopyUpdatesClick
-            $(document).on('click', '#mpqd-copy-updates-button', operation.onCopyUpdatesClick)
+            $(document).on('click', '#mpe-copy-updates-button', operation.onCopyUpdatesClick)
 
             // ontableHeaderClick
             $(document).on('click', '.table-striped', operation.ontableHeaderClick)
@@ -543,6 +587,13 @@
             // 是否直接打开磁链的checkbox
             $(document).on('change', '#instant_open_input', (e) => {
                 util.setValue('magnet_link_instant_open', e.target.checked)
+            })
+
+            // 是否高亮已订阅动漫的checkbox
+            $(document).on('change', '#highlight_subscribed_anime_input', (e) => {
+                util.setValue('highlight_subscribed_anime', e.target.checked)
+
+                operation.onClickHighlightAnimeCheckbox()
             })
 
             // 重置RPC设置
