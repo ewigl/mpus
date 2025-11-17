@@ -107,7 +107,7 @@
             '#f00000',
             //
         ],
-        defaultColor: '#555555',
+        defaultHighlightColor: '#555555',
         rpcSettings: [
             {
                 name: 'rpc_address',
@@ -446,26 +446,13 @@
                 util.batchCopy(currentTable)
             }
         },
-        onClickHighlightMagnetBox: (event) => {
-            let target = event.target
-            // 避免点击Box空白处时触发
-            if ($(target).prop('id') === 'highlight-magnet-box') {
-                return
-            }
-            let color = target.style.backgroundColor
-            util.setValue('mpe_highlight_color', color)
-
-            operation.onClickHighlightMagnetCheckbox()
-            operation.onClickHighlightAnimeCheckbox()
-        },
         onClickHighlightMagnetCheckbox: () => {
-            GM_addStyle(`.magnet-link {color: ${defaultConfig.defaultColor}}`)
+            GM_addStyle(`.magnet-link {color: ${defaultConfig.defaultHighlightColor}}`)
 
             if (util.getValue('highlight_magnet_link')) {
                 let rgb = util.getValue('mpe_highlight_color')
                 if (rgb) {
-                    let rgba = util.rgbToRgba(rgb, 0.8)
-                    GM_addStyle(`.magnet-link {color: ${rgba}}`)
+                    GM_addStyle(`.magnet-link {color: ${rgb}}`)
                 }
             }
         },
@@ -480,12 +467,23 @@
                     let rgba = util.rgbToRgba(rgb, 0.8)
                     GM_addStyle(`
                         .list-inline li:has(.an-info-icon.active) {
-                            box-shadow: 0 0 10px ${rgba}; }
+                            box-shadow: 0 0 12px ${rgba}; }
                         `)
                 }
             }
         },
+        onClickHighlightColor: (event) => {
+            let target = event.target
+            // 避免点击Box空白处时触发
+            if ($(target).prop('id') === 'highlight-magnet-box') {
+                return
+            }
+            let color = target.style.backgroundColor
+            util.setValue('mpe_highlight_color', color)
 
+            operation.onClickHighlightMagnetCheckbox()
+            operation.onClickHighlightAnimeCheckbox()
+        },
         onResetRPCSettings: async () => {
             util.resetToDefaultRPCConfig()
             $('#rpc-address').val(util.getValue('rpc_address'))
@@ -578,10 +576,7 @@
             $(document).on('click', '.table-striped', operation.ontableHeaderClick)
 
             // 设置高亮颜色
-            $(document).on('click', '#highlight-magnet-box', operation.onClickHighlightMagnetBox)
-
-            // 取消高亮
-            // $(document).on('click', '#un-highlight-magnet-button', operation.onClickUnHighlightMagnetButton)
+            $(document).on('click', '#highlight-magnet-box', operation.onClickHighlightColor)
 
             // 是否直接打开磁链的checkbox
             $(document).on('change', '#instant_open_input', (e) => {
@@ -591,6 +586,7 @@
             // 是否高亮磁链的checkbox
             $(document).on('change', '#highlight_magnet_input', (e) => {
                 util.setValue('highlight_magnet_link', e.target.checked)
+
                 operation.onClickHighlightMagnetCheckbox()
             })
 
