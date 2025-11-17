@@ -6,11 +6,7 @@
 
 [Greasy Fork](https://greasyfork.org/zh-CN/scripts/481873-%E8%9C%9C%E6%9F%91%E8%AE%A1%E5%88%92-%E5%A2%9E%E5%BC%BA)
 
-### 演示视频
-
-https://github.com/user-attachments/assets/bf68c7a6-945d-44be-ae40-1d49ce11e27b
-
-### 图例
+### 预览
 
 -   复制单个磁链(时 / 后)使用默认 BitTorrent 软件打开
 
