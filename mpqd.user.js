@@ -303,29 +303,27 @@
             <!-- 高亮磁链 -->
             <div class="custom-box">
                 <div class="custom-title">
-                    [复制磁链]按钮颜色:
+                    选择颜色:
                 </div>
                 <div id="highlight-magnet-box">
                     ${util.getDefaultColorButtonsDom()}
                 </div>
-                <button id="un-highlight-magnet-button" class="custom-button">
-                    取消自定义颜色
-                </button>
-            </div>
+                <div class="custom-title">
+                    高亮[复制磁链]按钮:
+                </div>
+                <input id="highlight_magnet_input" class="mpe_checkbox" type="checkbox" ${
+                    util.getValue('highlight_magnet_link') ? 'checked' : ''
+                } />
 
-            <!-- 高亮已订阅动漫 -->
-            <div class="custom-box">
+                <!-- 高亮已订阅动漫 -->
                 <div class="custom-title">
                     高亮已订阅动漫:
-                </div>
-                <div>
-                    颜色会跟随[复制磁链]按钮颜色
                 </div>
                 <input id="highlight_subscribed_anime_input" class="mpe_checkbox" type="checkbox" ${
                     util.getValue('highlight_subscribed_anime') ? 'checked' : ''
                 } />
             </div>
-                    
+         
             <!-- RPC 设置 -->
             <div id="rpc-settings-box" class="custom-box">
                 <b class="custom-title">
@@ -456,9 +454,20 @@
             }
             let color = target.style.backgroundColor
             util.setValue('magnet_highlight_color', color)
-            GM_addStyle(`.magnet-link { color: ${color}; }`)
 
+            operation.onClickHighlightMagnetCheckbox()
             operation.onClickHighlightAnimeCheckbox()
+        },
+        onClickHighlightMagnetCheckbox: () => {
+            GM_addStyle(`.magnet-link {color: ${defaultConfig.defaultColor}}`)
+
+            if (util.getValue('highlight_magnet_link')) {
+                let rgb = util.getValue('magnet_highlight_color')
+                if (rgb) {
+                    let rgba = util.rgbToRgba(rgb, 0.8)
+                    GM_addStyle(`.magnet-link {color: ${rgba}}`)
+                }
+            }
         },
         onClickHighlightAnimeCheckbox: () => {
             GM_addStyle(`
@@ -476,12 +485,12 @@
                 }
             }
         },
-        onClickUnHighlightMagnetButton: () => {
-            util.setValue('magnet_highlight_color', '')
-            GM_addStyle(`.magnet-link {color: ${defaultConfig.defaultColor}}`)
+        // onClickUnHighlightMagnetButton: () => {
+        //     util.setValue('magnet_highlight_color', '')
+        //     GM_addStyle(`.magnet-link {color: ${defaultConfig.defaultColor}}`)
 
-            operation.onClickHighlightAnimeCheckbox()
-        },
+        //     operation.onClickHighlightAnimeCheckbox()
+        // },
         onResetRPCSettings: async () => {
             util.resetToDefaultRPCConfig()
             $('#rpc-address').val(util.getValue('rpc_address'))
@@ -504,9 +513,11 @@
                 util.setValue('magnet_highlight_color', defaultConfig.defaultColor)
 
             // 添加style以高亮磁链
-            if (util.getValue('magnet_highlight_color')) {
-                GM_addStyle(`.magnet-link {color: ${util.getValue('magnet_highlight_color')}}`)
-            }
+            // if (util.getValue('magnet_highlight_color')) {
+            //     GM_addStyle(`.magnet-link {color: ${util.getValue('magnet_highlight_color')}}`)
+            // }
+            // 是否高亮磁链
+            operation.onClickHighlightMagnetCheckbox()
             // 是否高亮已订阅动漫
             operation.onClickHighlightAnimeCheckbox()
         },
@@ -582,11 +593,17 @@
             $(document).on('click', '#highlight-magnet-box', operation.onClickHighlightMagnetBox)
 
             // 取消高亮
-            $(document).on('click', '#un-highlight-magnet-button', operation.onClickUnHighlightMagnetButton)
+            // $(document).on('click', '#un-highlight-magnet-button', operation.onClickUnHighlightMagnetButton)
 
             // 是否直接打开磁链的checkbox
             $(document).on('change', '#instant_open_input', (e) => {
                 util.setValue('magnet_link_instant_open', e.target.checked)
+            })
+
+            // 是否高亮磁链的checkbox
+            $(document).on('change', '#highlight_magnet_input', (e) => {
+                util.setValue('highlight_magnet_link', e.target.checked)
+                operation.onClickHighlightMagnetCheckbox()
             })
 
             // 是否高亮已订阅动漫的checkbox
