@@ -453,7 +453,7 @@
                 return
             }
             let color = target.style.backgroundColor
-            util.setValue('magnet_highlight_color', color)
+            util.setValue('mpe_highlight_color', color)
 
             operation.onClickHighlightMagnetCheckbox()
             operation.onClickHighlightAnimeCheckbox()
@@ -462,7 +462,7 @@
             GM_addStyle(`.magnet-link {color: ${defaultConfig.defaultColor}}`)
 
             if (util.getValue('highlight_magnet_link')) {
-                let rgb = util.getValue('magnet_highlight_color')
+                let rgb = util.getValue('mpe_highlight_color')
                 if (rgb) {
                     let rgba = util.rgbToRgba(rgb, 0.8)
                     GM_addStyle(`.magnet-link {color: ${rgba}}`)
@@ -475,7 +475,7 @@
                     box-shadow: none; }
                 `)
             if (util.getValue('highlight_subscribed_anime')) {
-                let rgb = util.getValue('magnet_highlight_color')
+                let rgb = util.getValue('mpe_highlight_color')
                 if (rgb) {
                     let rgba = util.rgbToRgba(rgb, 0.8)
                     GM_addStyle(`
@@ -485,12 +485,7 @@
                 }
             }
         },
-        // onClickUnHighlightMagnetButton: () => {
-        //     util.setValue('magnet_highlight_color', '')
-        //     GM_addStyle(`.magnet-link {color: ${defaultConfig.defaultColor}}`)
 
-        //     operation.onClickHighlightAnimeCheckbox()
-        // },
         onResetRPCSettings: async () => {
             util.resetToDefaultRPCConfig()
             $('#rpc-address').val(util.getValue('rpc_address'))
@@ -506,19 +501,12 @@
             })
 
             // 是否立即打开磁链
-            util.getValue('magnet_link_instant_open') === undefined && util.setValue('magnet_link_instant_open', true)
+            util.getValue('magnet_link_instant_open') === undefined && util.setValue('magnet_link_instant_open', false)
 
-            // 高亮磁链颜色
-            util.getValue('magnet_highlight_color') === undefined &&
-                util.setValue('magnet_highlight_color', defaultConfig.defaultColor)
-
-            // 添加style以高亮磁链
-            // if (util.getValue('magnet_highlight_color')) {
-            //     GM_addStyle(`.magnet-link {color: ${util.getValue('magnet_highlight_color')}}`)
-            // }
-            // 是否高亮磁链
+            // 高亮磁链
             operation.onClickHighlightMagnetCheckbox()
-            // 是否高亮已订阅动漫
+
+            // 高亮已订阅动漫
             operation.onClickHighlightAnimeCheckbox()
         },
         // check scriptHandler
